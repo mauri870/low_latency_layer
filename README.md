@@ -1,8 +1,10 @@
 # low_latency_layer
 
-A C++23 implicit Vulkan layer that reduces click-to-photon latency by implementing both AMD and NVIDIA's latency reduction technologies.
+A C++23 implicit Vulkan layer that reduces click-to-photon latency across three operating modes.
 
-By providing hardware-agnostic implementations of the `VK_NV_low_latency2` and `VK_AMD_anti_lag` device extensions, this layer brings Reflex and Anti-Lag capabilities to AMD and Intel GPUs. When paired with [dxvk-nvapi](https://github.com/jp7677/dxvk-nvapi/) to forward the relevant calls, it bypasses the need for official driver-level support.
+**Transparent mode** activates automatically for any game that does not request `VK_AMD_anti_lag` or `VK_NV_low_latency2`. No configuration is required. Using GPU timestamps injected into every queue submission, the layer waits for the previous frame's GPU work to complete before each present, an Anti-Lag 1 / driver-level pacing strategy that eliminates the pre-rendered frame queue without any cooperation from the game.
+
+**Anti-Lag mode** and **Reflex mode** activate when the game explicitly requests the corresponding extension. By providing hardware-agnostic implementations of `VK_AMD_anti_lag` and `VK_NV_low_latency2`, the layer brings Anti-Lag 2 and Reflex capabilities to AMD and Intel GPUs. When paired with [dxvk-nvapi](https://github.com/jp7677/dxvk-nvapi/) to forward the relevant calls, it bypasses the need for official driver-level support.
 
 The layer also eliminates a hardware support disparity as considerably more applications support NVIDIA's Reflex than AMD's Anti-Lag.
 
@@ -28,14 +30,18 @@ Create an out-of-tree build directory (creatively we'll use 'build') and install
 > ⚠️ **WARNING:** You are likely going to have to install your distro's `vulkan-headers`, `vulkan-utility-libraries`, and possibly even `cmake` packages before proceeding. If you see an error here their absence is almost certainly the reason.
 
 ```
-    $ cmake -B build ./
-    $ cd ./build
-    $ sudo make install
+    $ cmake -B build && cmake --build build -j$(nproc) && sudo cmake --install build
 ```
 
 # Usage and Configuration
 
-By default, the layer exposes the `VK_AMD_anti_lag` device extension. For Linux native applications like *Counter-Strike 2* this works out-of-the-box, allowing you to toggle AMD's Anti-Lag in its menus. You can further customize the layer's behavior using the environment variables listed below.
+The layer operates in one of three modes, selected automatically based on the extensions the game requests at device creation:
+
+- **Transparent mode** (default for all other games): active whenever the game does not request `VK_AMD_anti_lag` or `VK_NV_low_latency2`. No configuration needed — the layer silently injects GPU timestamps and paces frame delivery to eliminate the pre-rendered frame queue.
+- **Anti-Lag mode**: active when the game requests `VK_AMD_anti_lag`. For Linux-native applications like *Counter-Strike 2* this works out-of-the-box, allowing you to toggle AMD's Anti-Lag in its menus.
+- **Reflex mode**: active when `LOW_LATENCY_LAYER_REFLEX=1` is set and the game requests `VK_NV_low_latency2`. Required for Proton titles that use NVIDIA Reflex.
+
+You can further customize the layer's behavior using the environment variables listed below.
 
 | Variable | Description |
 | :--- | :--- |

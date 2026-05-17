@@ -27,6 +27,9 @@ class DeviceContext final : public Context {
     // at the device level. This implies the physical_device's
     // supports_required_extensions was true (enforced in createDevice).
     const bool was_layer_enabled{};
+    // Transparent mode: game has no anti-lag support, but we still apply
+    // queue-depth pacing at present time using GPU timestamps.
+    const bool is_transparent_active{};
     const VkDevice device{};
     const VkuDeviceDispatchTable vtable{};
 
@@ -39,6 +42,7 @@ class DeviceContext final : public Context {
     explicit DeviceContext(InstanceContext& parent_instance,
                            PhysicalDeviceContext& parent_physical,
                            const VkDevice& device, const bool was_layer_enabled,
+                           const bool is_transparent_active,
                            VkuDeviceDispatchTable&& vtable);
     virtual ~DeviceContext();
 };

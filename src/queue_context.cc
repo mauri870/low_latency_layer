@@ -4,6 +4,7 @@
 #include "layer_context.hh"
 #include "strategies/anti_lag/queue_strategy.hh"
 #include "strategies/low_latency2/queue_strategy.hh"
+#include "strategies/transparent/queue_strategy.hh"
 #include "timestamp_pool.hh"
 
 #include <vulkan/vulkan_core.h>
@@ -39,13 +40,16 @@ QueueContext::QueueContext(DeviceContext& device, const VkQueue& queue,
 
     assert(qfi < std::size(*device.physical_device.queue_properties));
 
-    if (!this->device.was_layer_enabled) {
+    if (!this->device.was_layer_enabled && !this->device.is_transparent_active) {
         return;
     }
 
     this->command_pool = std::make_unique<CommandPoolOwner>(*this);
     this->timestamp_pool = std::make_unique<TimestampPool>(*this);
     this->strategy = [&]() -> std::unique_ptr<QueueStrategy> {
+        if (!this->device.was_layer_enabled) {
+            return std::make_unique<TransparentQueueStrategy>(*this);
+        }
         if (device.instance.layer.should_expose_reflex) {
             return std::make_unique<LowLatency2QueueStrategy>(*this);
         }
@@ -56,7 +60,7 @@ QueueContext::QueueContext(DeviceContext& device, const VkQueue& queue,
 QueueContext::~QueueContext() {}
 
 bool QueueContext::should_inject_timestamps() const {
-    if (!this->device.was_layer_enabled) {
+    if (!this->device.was_layer_enabled && !this->device.is_transparent_active) {
         return false;
     }
 

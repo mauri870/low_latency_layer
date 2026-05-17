@@ -24,6 +24,8 @@ class QueueStrategy {
     virtual void
     notify_submit(const VkSubmitInfo2& submit,
                   std::shared_ptr<TimestampPool::Handle> handle) = 0;
+    // Called before the underlying vkQueuePresentKHR is forwarded.
+    virtual void pre_present(const VkPresentInfoKHR&) {}
     virtual void notify_present(const VkPresentInfoKHR& present) = 0;
 };
 

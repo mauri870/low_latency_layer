@@ -36,7 +36,13 @@ void DeviceClock::calibrate() {
 
     // Don't write directly to error bound here, we haven't locked yet.
     auto local_error_bound = std::uint64_t{};
-    THROW_NOT_VKSUCCESS(device.vtable.GetCalibratedTimestampsKHR(
+    // Use whichever entry point was populated — KHR on newer drivers, EXT on
+    // older ones. Both have identical signatures.
+    const auto get_calibrated_timestamps =
+        device.vtable.GetCalibratedTimestampsKHR
+            ? device.vtable.GetCalibratedTimestampsKHR
+            : device.vtable.GetCalibratedTimestampsEXT;
+    THROW_NOT_VKSUCCESS(get_calibrated_timestamps(
         device.device, 2, std::data(infos), &calibrated_result.device,
         &local_error_bound));
 

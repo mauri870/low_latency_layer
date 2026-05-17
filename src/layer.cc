@@ -176,6 +176,15 @@ static VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
+    // Transparent mode: automatically active when the game does not use our
+    // extensions, provided the physical device supports the required extensions
+    // for GPU timestamp injection.
+    const auto is_transparent_active =
+        !was_layer_enabled && context->supports_required_extensions;
+
+    // Determines whether we need to patch extensions and device features.
+    const auto should_patch = was_layer_enabled || is_transparent_active;
+
     const auto create_info = [&]() -> auto {
         for (auto i = static_cast<const VkBaseInStructure*>(pCreateInfo->pNext);
              i; i = i->pNext) {
@@ -209,13 +218,22 @@ static VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(
     const auto next_extensions = [&]() -> std::vector<const char*> {
         auto next_extensions = std::vector{std::from_range, enabled_extensions};
 
-        // Only append the extra extension if it wasn't already asked for.
-        if (was_layer_enabled) {
-            std::ranges::copy_if(PhysicalDeviceContext::required_extensions,
-                                 std::back_inserter(next_extensions),
-                                 [&requested](const auto& wanted) {
-                                     return !requested.contains(wanted);
-                                 });
+        if (!should_patch) {
+            return next_extensions;
+        }
+
+        // Fixed required extensions (no variants).
+        std::ranges::copy_if(PhysicalDeviceContext::required_extensions_fixed,
+                             std::back_inserter(next_extensions),
+                             [&requested](const auto& wanted) {
+                                 return !requested.contains(wanted);
+                             });
+
+        // Calibrated timestamps: use whichever variant the device actually
+        // supports (KHR on newer drivers, EXT on older ones).
+        const auto calibrated_ts = context->calibrated_timestamps_extension;
+        if (calibrated_ts && !requested.contains(calibrated_ts)) {
+            next_extensions.push_back(calibrated_ts);
         }
 
         return next_extensions;
@@ -229,7 +247,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(
             static_cast<std::uint32_t>(std::size(next_extensions));
 
         auto next_create_info = vku::safe_VkDeviceCreateInfo{&create_info_copy};
-        if (!was_layer_enabled) {
+        if (!should_patch) {
             return next_create_info;
         }
 
@@ -305,7 +323,8 @@ static VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(
     layer_context.contexts.try_emplace(
         key,
         std::make_shared<DeviceContext>(context->instance, *context, *pDevice,
-                                        was_layer_enabled, std::move(vtable)));
+                                        was_layer_enabled, is_transparent_active,
+                                        std::move(vtable)));
 
     return VK_SUCCESS;
 }
@@ -539,10 +558,14 @@ QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* present_info) {
     const auto context = layer_context.get_context(queue);
     const auto& vtable = context->device.vtable;
 
+    assert(present_info);
+    if (context->strategy) {
+        context->strategy->pre_present(*present_info);
+    }
+
     const auto result = vtable.QueuePresentKHR(queue, present_info);
 
     // We must *ALWAYS* notify_present regardless of the error here.
-    assert(present_info);
     if (context->strategy) {
         context->strategy->notify_present(*present_info);
     }

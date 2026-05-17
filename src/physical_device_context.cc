@@ -10,8 +10,8 @@
 
 namespace low_latency {
 
-static bool
-does_support_required_extensions(const PhysicalDeviceContext& context) {
+static auto
+query_supported_extensions(const PhysicalDeviceContext& context) {
     auto count = std::uint32_t{};
     THROW_NOT_VKSUCCESS(
         context.instance.vtable.EnumerateDeviceExtensionProperties(
@@ -23,23 +23,53 @@ does_support_required_extensions(const PhysicalDeviceContext& context) {
             context.physical_device, nullptr, &count,
             std::data(supported_extensions)));
 
-    const auto supported =
-        supported_extensions | std::views::transform([](const auto& supported) {
-            return supported.extensionName;
-        }) |
-        std::ranges::to<std::unordered_set<std::string_view>>();
+    return supported_extensions |
+           std::views::transform(
+               [](const auto& ext) -> std::string_view {
+                   return ext.extensionName;
+               }) |
+           std::ranges::to<std::unordered_set<std::string_view>>();
+}
 
-    return std::ranges::all_of(PhysicalDeviceContext::required_extensions,
-                               [&](const auto& required_extension) {
-                                   return supported.contains(
-                                       required_extension);
-                               });
+// Returns VK_KHR_calibrated_timestamps if supported, VK_EXT_calibrated_timestamps
+// if only the older EXT variant is available, or nullptr if neither is present.
+static const char*
+pick_calibrated_timestamps_extension(
+    const std::unordered_set<std::string_view>& supported) {
+    if (supported.contains(VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME)) {
+        return VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME;
+    }
+    if (supported.contains(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME)) {
+        return VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME;
+    }
+    return nullptr;
+}
+
+struct ExtensionSupport {
+    bool supports_required{};
+    const char* calibrated_timestamps_extension{};
+};
+
+static ExtensionSupport
+check_extension_support(const PhysicalDeviceContext& context) {
+    const auto supported = query_supported_extensions(context);
+    const auto calibrated =
+        pick_calibrated_timestamps_extension(supported);
+    const auto supports_required =
+        calibrated != nullptr &&
+        std::ranges::all_of(
+            PhysicalDeviceContext::required_extensions_fixed,
+            [&](const auto& ext) { return supported.contains(ext); });
+    return {supports_required, calibrated};
 }
 
 PhysicalDeviceContext::PhysicalDeviceContext(
     InstanceContext& instance_context, const VkPhysicalDevice& physical_device)
     : instance(instance_context), physical_device(physical_device),
-      supports_required_extensions(does_support_required_extensions(*this)) {
+      supports_required_extensions(
+          check_extension_support(*this).supports_required),
+      calibrated_timestamps_extension(
+          check_extension_support(*this).calibrated_timestamps_extension) {
 
     const auto& vtable = instance_context.vtable;
 
