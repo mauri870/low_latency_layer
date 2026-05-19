@@ -17,7 +17,8 @@ class PhysicalDeviceContext final : public Context {
     // flag in VkGetPhysicalDevices2 (check this->supports_required_extensions).
     static constexpr auto required_extensions_fixed = {
         VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-        VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME};
+        VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME,
+        VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME};
 
   public:
     InstanceContext& instance;
