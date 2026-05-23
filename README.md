@@ -35,9 +35,9 @@ Create an out-of-tree build directory (creatively we'll use 'build') and install
 
 # Usage and Configuration
 
-The layer operates in one of three modes, selected automatically based on the extensions the game requests at device creation:
+The layer operates in one of three modes, selected based on the extensions the game requests at device creation:
 
-- **Transparent mode** (default for all other games): active whenever the game does not request `VK_AMD_anti_lag` or `VK_NV_low_latency2`. No configuration needed — the layer silently injects GPU timestamps and paces frame delivery to eliminate the pre-rendered frame queue.
+- **Transparent mode**: opt-in via `LOW_LATENCY_LAYER_TRANSPARENT=1` for games that do not request either extension. Injects GPU timestamps into every submission and paces frame delivery to the GPU's actual frame time, draining the pre-render queue without stalling the GPU pipeline. Only beneficial when the GPU has headroom; has no effect at 100% GPU utilization.
 - **Anti-Lag mode**: active when the game requests `VK_AMD_anti_lag`. For Linux-native applications like *Counter-Strike 2* this works out-of-the-box, allowing you to toggle AMD's Anti-Lag in its menus.
 - **Reflex mode**: active when `LOW_LATENCY_LAYER_REFLEX=1` is set and the game requests `VK_NV_low_latency2`. Required for Proton titles that use NVIDIA Reflex.
 
@@ -46,6 +46,7 @@ You can further customize the layer's behavior using the environment variables l
 | Variable | Description |
 | :--- | :--- |
 | `LOW_LATENCY_LAYER_REFLEX` | Set to `1` to expose `VK_NV_low_latency2` instead of `VK_AMD_anti_lag`. |
+| `LOW_LATENCY_LAYER_TRANSPARENT` | Set to `1` to enable transparent mode for games with no anti-lag support. Paces CPU frame submission to the GPU's measured frame time. Only effective when the GPU is not already at 100% utilization. |
 | `LOW_LATENCY_LAYER_FORCE_DECOUPLED` | Set to `1` to force mitigation of a decoupled simulation and render queue. This is disabled by default - only enabled for Marvel Rivals. Refer to `delay_controller.hh` for more details. Do not use outside of debugging - this will hurt latency in most applications. |
 | `LOW_LATENCY_LAYER_SPOOF_NVIDIA` | Set to `1` to report the device as an NVIDIA GPU to the application, regardless of actual hardware. Not recommended - prefer `DXVK_CONFIG="dxgi.hideAmdGpu = True"`, as this option is known to break Proton's FSR4 upgrade path. |
 | `DISABLE_LOW_LATENCY_LAYER` | Expose to disable the layer. |

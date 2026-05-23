@@ -177,11 +177,11 @@ static VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
-    // Transparent mode: automatically active when the game does not use our
-    // extensions, provided the physical device supports the required extensions
-    // for GPU timestamp injection.
+    // Transparent mode: opt-in via LOW_LATENCY_LAYER_TRANSPARENT=1 for games
+    // that do not request VK_AMD_anti_lag or VK_NV_low_latency2.
     const auto is_transparent_active =
-        !was_layer_enabled && context->supports_required_extensions;
+        !was_layer_enabled && layer_context.should_use_transparent &&
+        context->supports_required_extensions;
 
     // Determines whether we need to patch extensions and device features.
     const auto should_patch = was_layer_enabled || is_transparent_active;

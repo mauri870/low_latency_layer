@@ -61,6 +61,10 @@ class LayerContext final : public Context {
     static constexpr auto FORCE_DECOUPLED_ENV =
         "LOW_LATENCY_LAYER_FORCE_DECOUPLED";
 
+    // Transparent mode: GPU-timestamp-based frame pacing for games that do not
+    // request VK_AMD_anti_lag or VK_NV_low_latency2.
+    static constexpr auto TRANSPARENT_ENV = "LOW_LATENCY_LAYER_TRANSPARENT";
+
   public:
     // Constants for spoofing.
     static constexpr auto NVIDIA_VENDOR_ID = 0x10DE;
@@ -71,6 +75,7 @@ class LayerContext final : public Context {
     const bool should_expose_reflex{};
     const bool should_spoof_nvidia{};
     const bool should_force_decoupled{};
+    const bool should_use_transparent{};
 
     std::shared_mutex mutex{};
     std::unordered_map<void*, std::shared_ptr<Context>> contexts{};

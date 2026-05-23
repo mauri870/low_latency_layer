@@ -13,7 +13,8 @@ static bool parse_bool_env(const auto& name) {
 LayerContext::LayerContext()
     : should_expose_reflex(parse_bool_env(REFLEX_ENV)),
       should_spoof_nvidia(parse_bool_env(SPOOF_NVIDIA_ENV)),
-      should_force_decoupled(parse_bool_env(FORCE_DECOUPLED_ENV)) {}
+      should_force_decoupled(parse_bool_env(FORCE_DECOUPLED_ENV)),
+      should_use_transparent(parse_bool_env(TRANSPARENT_ENV)) {}
 
 LayerContext::~LayerContext() {}
 
